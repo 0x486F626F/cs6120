@@ -4,25 +4,49 @@ extra.author = "Hongbo Zhang, Sachille Atapattu, Wen-Ding Li"
 extra.bio = """
   Hongbo Zhang is a first PhD student in computer science. He is interested in systems and computer architectures. He is also okay archer shooting recurve bow.
   [Wen-Ding Li](https://www.cs.cornell.edu/~wdli/) is a Ph.D. student at Cornell interested in high-performance code generation.
+  Scachille Atapattu is a Ph.D. student at Cornell University.
 """
 +++
 # Register Allocation for Bril
 
-Processors usually have registers which can be used to store variables for faster access. Program will run faster if we can put variables in these registers. Nevertheless, registers are limited, so often times we still need to access memory (or cache) instead of registers and memory access are costly compared with register access. Although modern program often use large number of variables, we can analyze their live range so the same registers may be able to hold different varialbes throughout the program. Then, we can put more varialbes in the registers which may lead to fewer memory access and get a faster program. 
+Processors usually have registers which can be used to store variables for faster access. 
+Programs will run faster if we can put variables in these registers. 
+Nevertheless, registers are limited, so oftentimes we still need to access memory (or cache) instead of registers. 
+Memory access are costly compared with register access. 
+Although modern program often use large number of variables, 
+we can analyze their live ranges so the same registers may be reused to hold different variables throughout the program. 
+Then, we can put more variables in the registers which may lead to fewer memory accesses and yeild a faster program. 
 
-The goal of our project is to perform register allocation on Bril program and anaylze its performance. In this project, we implemented register allocation for Bril via graph coloring. Our project can be found in [this repository](https://github.com/xu3kev/bril) under `regalloc` directory.
+The goal of our project is to perform register allocation on Bril program and anaylze its performance. 
+In this project, we implemented register allocation via graph coloring. 
+Our project can be found in [this repository](https://github.com/xu3kev/bril/regalloc).
 
 ## Method
-Our approach for the register allocation can be divided in three main parts. First, we perform liveness analysis and then build a graph. Second, we solve approximate k graph coloring problem to obtain a mapping from each varialbe to corresponding register. At last, we generate Bril code based on the mapping.
+Our approach for the register allocation can be divided in three main parts. 
+First, we perform liveness analysis and then build a graph. 
+Second, we solve approximate k graph coloring problem to obtain a mapping from each variable to corresponding register. 
+At last, we generate Bril code based on the mapping.
 
 ### Liveness Analysis
-We use data flow analysis to get the live varialbes at each instruction of the program. First we transform the input Bril program to control flow graph (cfg) and then perform liveness analysis with a standard backward flow anaylsis. Once we obtain the live varialbes in the end of each code block, we start from that and go backward: when we see a definition of a varialbe, we kill the variable, and when we see the use of the varialbe, we mark it as alive. Then, we can get the live varialbes at every instructions.
+We use data flow analysis to get the live variables at each instruction of the program. 
+First we transform the input Bril program to control flow graph (CFG) and then perform liveness analysis with a standard backward flow anaylsis. Once we obtain the live variables in the end of each code block, we start from that and go backward: when we see a definition of a variable, we kill the variable, and when we see the use of the variable, we mark it as alive. Then, we can get the live variables at every instructions.
 
 ### Graph Coloring
-With the liveness ranges of all local variables, we can know which variables are "alive" at the same time. If two variables have overlapped liveness ranges, it means that they cannot be allocated to the same register. Otherwise, they may be allocated to the same register. Our goal is to have register assignment so that we can allocate as many variables on registers as possible.
-We solve this question by graph coloring. Each node in the graph represents a local variable in the function. There is an edge between two nodes if the two variables have overlapped liveness range. We just needs to compute a color assignment with at most *k* colors, such that every pair of nodes on the two sides of an edge have different colors.
-Clearly, it is not always possible to find a coloring scheme. For example, it is not possible to allocate 2 registers to 3 variables with overlapped liveness ranges. Maybe we should find a coloring scheme to cover the subgraph with most number of nodes (variables)?
-Unfortunately, it is still impossible. *k*-coloring is a NP-complete problem. Instead of finding the optimal coloring, we use optimistic coloring to find one large subgraph with as many nodes as possible.
+With the liveness ranges of all local variables, 
+we can know which variables are "alive" at the same time. 
+If two variables have overlapped liveness ranges, 
+it means that they cannot be allocated to the same register. 
+Clearly, it is not always possible to find a register allocation for variables.
+For example, it is not possible to allocate 2 registers to 3 variables with overlapped liveness ranges. 
+Our goal is to have a register assignment so that 
+we can allocate as many variables on registers as possible.
+
+If we create a graph such that each node represents a local variable.
+There is an edge between two nodes if the two variables have overlapped liveness range. 
+Now solving register allocation is equivalent to finding the largest $k$-colorable subgraph,
+which does not have a polynomial-time algorithm to solve it.
+
+Instead of finding the optimal coloring, we use optimistic coloring to find one large subgraph with as many nodes as possible.
 On each interation, we find the node with the least number of neighbours that are not assigned a color yet. Then we try to assign a color to the selected node based on the constraints of all neighbour nodes. If it is not possible to assign a color to the selected node, then we remove the node from the graph along with all edges connected to the node.
 Only the variables with a assigned color will be allocated to the corresponding registers, all reads or writes to other variables will involve a memory load and store.
 
